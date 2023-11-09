@@ -132,13 +132,8 @@ router.get("/:pizzaId", (req, res, next) => {
 
 router.patch("/:pizzaId", (req, res, next) => {
   const pizzaId = req.params.pizzaId;
-  const updateOps = {};
-  for (const ops of req.body) {
-    updateOps[ops.propName] = ops.value;
-  }
-  Pizza.updateOne({ _id: pizzaId }, { $set: updateOps })
-    .exec()
-    .then((result) => {
+  Pizza.findByIdAndUpdate(pizzaId, { $set: req.body }, { new: true })
+    .then(
       res.status(200).json({
         message: "Pizza updated",
         request: {
@@ -152,14 +147,41 @@ router.patch("/:pizzaId", (req, res, next) => {
             "/" +
             pizzaId,
         },
-      });
-    })
-    .catch((err) => {
-      res.status(500).json({
-        error: err,
-      });
-    });
+      })
+    )
+    .catch((err) => res.status(500).json({ error: err }));
 });
+
+// router.patch("/:pizzaId", (req, res, next) => {
+//   const pizzaId = req.params.pizzaId;
+//   const updateOps = {};
+//   for (const ops of req.body) {
+//     updateOps[ops.propName] = ops.value;
+//   }
+//   Pizza.updateOne({ _id: pizzaId }, { $set: updateOps })
+//     .exec()
+//     .then((result) => {
+//       res.status(200).json({
+//         message: "Pizza updated",
+//         request: {
+//           type: "GET",
+//           description: "Get details",
+//           url:
+//             process.env.DOMAIN +
+//             ":" +
+//             process.env.PORT +
+//             defaultUrl +
+//             "/" +
+//             pizzaId,
+//         },
+//       });
+//     })
+//     .catch((err) => {
+//       res.status(500).json({
+//         error: err,
+//       });
+//     });
+// });
 
 router.delete("/:pizzaId", (req, res, next) => {
   const pizzaId = req.params.pizzaId;
