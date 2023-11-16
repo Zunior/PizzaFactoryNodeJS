@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const mongoose = require("mongoose");
 const multer = require("multer");
-const fs = require("fs");
+const checkAuth = require("../middleware/check-auth");
+const PizzasController = require("../controllers/pizzas");
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -29,128 +29,22 @@ const upload = multer({
   fileFilter: fileFilter,
 });
 
-const Pizza = require("../models/pizza");
+router.get("/", PizzasController.pizzas_get_all);
 
-const defaultUrl = "/pizzas";
+router.post(
+  "/",
+  checkAuth,
+  upload.single("pizzaImage"),
+  PizzasController.pizzas_create_new
+);
 
-router.get("/", (req, res, next) => {
-  Pizza.find()
-    .select("_id name price size pizzaImage")
-    .exec()
-    .then((docs) => {
-      const response = {
-        count: docs.length,
-        pizzas: docs.map((doc) => {
-          return {
-            id: doc._id,
-            name: doc.name,
-            price: doc.price,
-            size: doc.size,
-            pizzaImage: doc.pizzaImage,
-            request: {
-              type: "GET",
-              url:
-                process.env.DOMAIN +
-                ":" +
-                process.env.PORT +
-                defaultUrl +
-                "/" +
-                doc._id,
-            },
-          };
-        }),
-      };
-      res.status(200).json(response);
-    })
-    .catch((err) => {
-      res.status(500).json({
-        error: err,
-      });
-    });
-});
+router.get("/:pizzaId", PizzasController.pizzas_get_by_id);
 
-router.post("/", upload.single("pizzaImage"), (req, res, next) => {
-  const pizza = new Pizza({
-    _id: new mongoose.Types.ObjectId(),
-    name: req.body.name,
-    size: req.body.size,
-    price: req.body.price,
-    pizzaImage: req.file?.path,
-  });
-  pizza
-    .save()
-    .then((result) => {
-      res.status(201).json({
-        message: "New pizza created succesfully",
-        createdPizza: {
-          id: result._id,
-          name: result.name,
-          price: result.price,
-          size: result.size,
-          pizzaImage: result.pizzaImage,
-          request: {
-            type: "GET",
-            url:
-              process.env.DOMAIN +
-              ":" +
-              process.env.PORT +
-              defaultUrl +
-              "/" +
-              result._id,
-          },
-        },
-      });
-    })
-    .catch((err) => {
-      res.status(500).json({ error: err });
-    });
-});
+router.patch("/:pizzaId", checkAuth, PizzasController.pizzas_update_by_id);
 
-router.get("/:pizzaId", (req, res, next) => {
-  const pizzaId = req.params.pizzaId;
-  Pizza.findById(pizzaId)
-    .select("_id name price size pizzaImage")
-    .exec()
-    .then((doc) => {
-      if (doc) {
-        res.status(200).json({
-          pizza: doc,
-          request: {
-            type: "GET",
-            description: "Get all pizzas",
-            url: process.env.DOMAIN + ":" + process.env.PORT + defaultUrl,
-          },
-        });
-      } else {
-        res.status(404).json({ message: "No valid pizza id provided" });
-      }
-    })
-    .catch((err) => {
-      res.status(500).json({ error: err });
-    });
-});
+router.delete("/:pizzaId", checkAuth, PizzasController.pizzas_delete_by_id);
 
-router.patch("/:pizzaId", (req, res, next) => {
-  const pizzaId = req.params.pizzaId;
-  Pizza.findByIdAndUpdate(pizzaId, { $set: req.body }, { new: true })
-    .then(
-      res.status(200).json({
-        message: "Pizza updated",
-        request: {
-          type: "GET",
-          description: "Get details",
-          url:
-            process.env.DOMAIN +
-            ":" +
-            process.env.PORT +
-            defaultUrl +
-            "/" +
-            pizzaId,
-        },
-      })
-    )
-    .catch((err) => res.status(500).json({ error: err }));
-});
+module.exports = router;
 
 // router.patch("/:pizzaId", (req, res, next) => {
 //   const pizzaId = req.params.pizzaId;
@@ -182,35 +76,3 @@ router.patch("/:pizzaId", (req, res, next) => {
 //       });
 //     });
 // });
-
-router.delete("/:pizzaId", (req, res, next) => {
-  const pizzaId = req.params.pizzaId;
-  Pizza.findById(pizzaId)
-    .select("pizzaImage")
-    .exec()
-    .then((doc) => {
-      if (doc) {
-        return doc.pizzaImage;
-      }
-    })
-    .then((imageUrl) => {
-      Pizza.deleteOne({ _id: pizzaId })
-        .exec()
-        .then((result) => {
-          if (imageUrl) {
-            fs.unlinkSync(imageUrl);
-          }
-          res.status(200).json(result);
-        })
-        .catch((err) => {
-          res.status(500).json({
-            error: NativeError,
-          });
-        });
-    })
-    .catch((err) => {
-      res.status(500).json({ error: err });
-    });
-});
-
-module.exports = router;
